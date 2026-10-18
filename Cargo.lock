@@ -4112,6 +4112,7 @@ dependencies = [
  "rama-udp",
  "rama-unix",
  "rama-utils",
+ "rama-wireguard",
  "rama-ws",
  "rand 0.10.3",
  "rustversion",
@@ -5100,6 +5101,17 @@ dependencies = [
  "tracing",
  "trybuild",
  "wildcard",
+]
+
+[[package]]
+name = "rama-wireguard"
+version = "0.5.0"
+dependencies = [
+ "rama-core",
+ "rama-net",
+ "rama-udp",
+ "rama-wireguard-proto",
+ "tokio-test",
 ]
 
 [[package]]

@@ -81,6 +81,7 @@ members = [
     "rama-unix",
     "rama-utils",
     "rama-ws",
+    "rama-wireguard",
     "rama-wireguard-proto",
 ]
 
@@ -236,6 +237,7 @@ rama-udp = { version = "0.5.0", path = "./rama-udp", default-features = false }
 rama-unix = { version = "0.5.0", path = "./rama-unix", default-features = false }
 rama-utils = { version = "0.5.0", path = "./rama-utils", default-features = false }
 rama-ws = { version = "0.5.0", path = "./rama-ws", default-features = false }
+rama-wireguard = { version = "0.5.0", path = "./rama-wireguard", default-features = false }
 rama-wireguard-proto = { version = "0.5.0", path = "./rama-wireguard-proto", default-features = false }
 rand = "0.10"
 rand_pcg = "0.10"
@@ -495,6 +497,14 @@ dns = ["std", "net", "dep:rama-dns", "rama-socks5?/dns"]
 dns-hickory = ["dns", "rama-dns/hickory"]
 tcp = ["std", "net", "dep:rama-tcp"]
 udp = ["std", "net", "dep:rama-udp"]
+# WireGuard protocol, cryptographic handshake and device state.
+wireguard = [
+    "std",
+    "net",
+    "udp",
+    "crypto",
+    "dep:rama-wireguard",
+]
 # QUIC v1 transport over `udp`, with backend-neutral TLS types. Select a built-in
 # TLS/crypto backend explicitly, or supply an external provider.
 quic = ["std", "udp", "tls", "dep:rama-quic", "dep:rama-quic-proto"]
@@ -633,6 +643,7 @@ rama-ttrpc = { workspace = true, optional = true, features = ["protobuf", "vendo
 rama-ua = { workspace = true, optional = true }
 rama-udp = { workspace = true, optional = true }
 rama-utils = { workspace = true }
+rama-wireguard = { workspace = true, optional = true }
 rama-ws = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }

@@ -6,7 +6,7 @@
 //! keys explicitly. It performs no socket I/O and reads no clock; cryptographic
 //! randomness is supplied by the caller.
 //!
-//! Callers supply packet I/O and scheduling.
+//! For manually driven UDP adapters, use `rama-wireguard`.
 //! This crate currently uses `std` and requires `rama-crypto/rustcrypto`.
 //! The protocol work is initially based on
 //! [`rustyguard`](https://github.com/conradludgate/rustyguard).

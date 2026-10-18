@@ -1,0 +1,33 @@
+[package]
+name = "rama-wireguard"
+description = "WireGuard UDP adapters for rama"
+version = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+keywords = ["io", "wireguard", "vpn", "network", "rama"]
+categories = ["asynchronous", "network-programming"]
+authors = { workspace = true }
+rust-version = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[features]
+default = []
+test-utils = ["rama-udp/test-utils"]
+
+[dependencies]
+rama-core = { workspace = true }
+rama-wireguard-proto = { workspace = true }
+rama-net = { workspace = true }
+rama-udp = { workspace = true }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+

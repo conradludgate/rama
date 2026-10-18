@@ -5,7 +5,9 @@ handshakes, transport encryption and replay windows, peer configuration, IP
 routing and protocol timers. Initially based on
 [conradludgate/rustyguard](https://github.com/conradludgate/rustyguard).
 
-Use this crate when supplying your own packet I/O and scheduling.
+Use this crate when supplying your own packet I/O and scheduling. For Rama's manually driven UDP adapters,
+use [`rama-wireguard`](../rama-wireguard), which re-exports the common protocol
+modules and types.
 
 ## Boundary
 
@@ -45,7 +47,8 @@ lower-level `send`/`receive_datagram` methods process raw tunnel payloads.
 
 Protocol timing includes retries, keepalives, rekeying and expiry of every receive
 key generation. Peer removal clears routes, pending handshakes, all sessions,
-timers and queued packets. Adaptive overload policy and MTU discovery remain application concerns.
+timers and queued packets. See the runtime crate README for deployment examples
+and remaining limitations, including adaptive overload policy and MTU discovery.
 
 ## Checks
 
@@ -55,4 +58,6 @@ cargo test -p rama-wireguard-proto --locked
 ```
 
 Tests cover known crypto vectors, handshake/cookie processing, replay/counter
-limits, IP routing and protocol lifecycle using explicit virtual time.
+limits, IP routing and protocol lifecycle using explicit virtual time. UDP,
+queue ownership, cancellation and interoperability tests belong to the runtime
+crate.
