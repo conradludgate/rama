@@ -113,11 +113,13 @@ bb8 = "0.9"
 bb8-postgres = "0.9"
 bindgen = "0.73"
 bitflags = "2.13"
+blake2 = { version = "0.11", default-features = false, features = ["zeroize"] }
 block2 = "0.6"
 brotli = "9"
 byteorder = "1.5"
 bytes = { version = "1", default-features = false, features = ["serde"] }
 cc = "1"
+chacha20poly1305 = { version = "0.11", default-features = false, features = ["zeroize"] }
 clap = { version = "4.6", features = ["derive", "unstable-v5", "wrap_help"] }
 compression-codecs = "0.4"
 compression-core = "0.4"
@@ -136,6 +138,7 @@ futures = { version = "0.3", default-features = false }
 futures-channel = "0.3"
 futures-core = { version = "0.3", default-features = false }
 hickory-resolver = { version = "0.26.3", default-features = false, features = ["tokio", "system-config", "serde"] }
+hkdf = "0.13"
 hmac = "0.13"
 honggfuzz = "0.5"
 http = "1" # interop-only (rama-http-hyperium / rama-tower); native rama Uri handles CONNECT, so no version pin needed
@@ -292,6 +295,7 @@ wildcard = "0.3"
 windows-sys = "0.61"
 x509-ocsp = "0.2"
 x509-ocsp-der = { package = "der", version = "0.7" }
+x25519-dalek = { version = "3", default-features = false, features = ["static_secrets", "zeroize"] }
 x509-parser = { version = "0.18", default-features = false }
 yasna = { version = "0.6", default-features = false }
 zeroize = { version = "1", default-features = false, features = ["alloc"] }
@@ -455,6 +459,7 @@ tls = [
 ]
 aws-lc = ["rama-crypto?/aws-lc", "rama-tls-rustls?/aws-lc", "rama-quic?/aws-lc"]
 ring = ["rama-crypto?/ring", "rama-tls-rustls?/ring", "rama-quic?/ring"]
+rustcrypto = ["rama-crypto?/rustcrypto"]
 rustls = ["tls", "dep:rama-tls-rustls", "rama-quic?/rustls"]
 boring = ["tls", "dep:rama-tls-boring", "rama-quic?/boring"]
 cli = [
