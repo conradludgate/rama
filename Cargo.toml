@@ -81,6 +81,7 @@ members = [
     "rama-unix",
     "rama-utils",
     "rama-ws",
+    "rama-wireguard-proto",
 ]
 
 [workspace.package]
@@ -235,6 +236,7 @@ rama-udp = { version = "0.5.0", path = "./rama-udp", default-features = false }
 rama-unix = { version = "0.5.0", path = "./rama-unix", default-features = false }
 rama-utils = { version = "0.5.0", path = "./rama-utils", default-features = false }
 rama-ws = { version = "0.5.0", path = "./rama-ws", default-features = false }
+rama-wireguard-proto = { version = "0.5.0", path = "./rama-wireguard-proto", default-features = false }
 rand = "0.10"
 rand_pcg = "0.10"
 ratatui = { version = "0.30", default-features = false, features = ["crossterm", "layout-cache", "macros", "underline-color"] }
