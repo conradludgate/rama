@@ -5106,7 +5106,9 @@ dependencies = [
 name = "rama-wireguard-proto"
 version = "0.5.0"
 dependencies = [
+ "ahash",
  "rama-crypto",
+ "rama-net",
  "zerocopy",
  "zeroize",
 ]

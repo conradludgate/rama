@@ -41,6 +41,8 @@ pub struct StaticPeerConfig {
     pub mac1_key: Key,
     pub cookie_key: Key,
     pub endpoint: Option<SocketAddr>,
+    pub(crate) cookie: Option<Cookie>,
+    pub(crate) last_timestamp: Option<Tai64n>,
 }
 impl Drop for StaticPeerConfig {
     fn drop(&mut self) {
@@ -67,6 +69,8 @@ impl StaticPeerConfig {
             key,
             preshared_key: preshared_key.unwrap_or_default(),
             endpoint,
+            cookie: None,
+            last_timestamp: None,
         }
     }
 }

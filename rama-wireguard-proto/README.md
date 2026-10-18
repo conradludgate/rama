@@ -1,9 +1,9 @@
 # rama-wireguard-proto
 
-WireGuard wire formats, Noise IKpsk2 handshakes, cookies, transport encryption
-and replay protection. Built-in primitives use `rama-crypto/rustcrypto`.
+WireGuard wire formats, cryptographic primitives and configured device state.
+`Device<C>` coordinates peer identities, handshakes, cookies, transport sessions
+and allowed-IP routing. Cryptographic randomness and I/O are supplied by callers.
+Peer removal clears configuration and owned routes; peer IDs are never reused.
 
-This std-based protocol library takes cryptographic randomness as input.
-It provides no socket I/O or runtime driver.
-
-Run `cargo test -p rama-wireguard-proto --locked` for crypto vectors and protocol tests.
+The built-in provider requires `rama-crypto/rustcrypto`. This crate uses std.
+Run `cargo test -p rama-wireguard-proto --locked` for protocol and device tests.
