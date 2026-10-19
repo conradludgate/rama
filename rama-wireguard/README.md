@@ -95,6 +95,13 @@ are kept increasing during the driver's lifetime. `close()` requests shutdown
 without command queue capacity; dropping all endpoint and peer handles also
 stops the driver. Receivers drain already queued packets before returning `None`.
 
+## Userspace TCP example
+
+[`examples/wireguard-smoltcp`](../examples/wireguard-smoltcp) builds a virtual
+IPv4/TCP network on top of the endpoint packet API using smoltcp, without TUN or
+OS route changes. Run `cargo run -p rama-wireguard-smoltcp --locked` to verify a
+TCP echo between two virtual hosts over encrypted loopback UDP.
+
 ## Linux TUN
 
 The `linux_tun` example connects configured peers to a Linux layer-3 TUN

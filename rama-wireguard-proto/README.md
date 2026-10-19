@@ -61,4 +61,4 @@ cargo test -p rama-wireguard-proto --locked
 Tests cover known crypto vectors, handshake/cookie processing, replay/counter
 limits, IP routing and protocol lifecycle using explicit virtual time. UDP,
 queue ownership, cancellation and interoperability tests belong to the runtime
-crate.
+crate and the smoltcp example.

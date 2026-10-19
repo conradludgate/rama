@@ -31,6 +31,7 @@ members = [
     ".",
     "examples",
     "examples/grpc",
+    "examples/wireguard-smoltcp",
     "examples/grpc/tests/extern_path/my_application",
     "examples/grpc/tests/extern_path/uuid",
     "fuzz",
