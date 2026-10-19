@@ -144,3 +144,49 @@ The connected `10.77.0.0/24` route goes through TUN. Test with
 must stay outside the tunnel. The example uses MTU 1420, one peer and no preshared key. The last argument is a
 comma-separated list of allowed IPv4/IPv6 prefixes.
 The non-persistent interface is removed when the process closes it.
+
+### Isolated smoke tests
+
+These use disposable user/network namespaces with a veth pair and require
+`ip`, `nsenter`, `ping`, user-namespace support and `/dev/net/tun`. They do not
+change the host's interfaces or routes:
+
+```sh
+bash rama-wireguard/tests/linux_tun_smoke.sh target/debug/examples/linux_tun
+```
+
+Test against Linux kernel WireGuard instead of a second Rama endpoint with
+`wireguard-tools` installed (the kernel must support WireGuard):
+
+```sh
+bash rama-wireguard/tests/linux_tun_smoke.sh target/debug/examples/linux_tun --kernel
+```
+
+`WG=/path/to/wg` selects a CLI outside `PATH`. Both modes check bidirectional
+IPv4/IPv6 pings, full-MTU packets, and recovery after malformed UDP datagrams.
+CI runs both modes on Linux with a 90-second deadline. On systems that restrict
+unprivileged user namespaces, run the script with `sudo`; it still creates a
+private network namespace before configuring interfaces. Failed runs print the
+endpoint logs before cleaning up.
+
+### Cookie and overload test coverage
+
+The in-memory UDP test forces a cookie challenge and verifies that the next
+initiation succeeds with MAC2. Engine tests use an explicit clock for retry
+spacing and handshake timeout coverage, without real-time sleeps. These cover
+outgoing retry limits; incoming overload detection and admission rate limiting
+remain unimplemented.
+
+A useful next kernel fixture would drive `WireGuardEngine` directly over UDP,
+force Rama's cookie policy, and assert that a kernel-initiated handshake retries
+with valid MAC2 before allowing data. Rama would not need a TUN device for this
+fixture: it could inject and inspect inner IP packets directly. Keep the TUN
+smoke test as separate coverage of OS integration.
+
+Testing kernel-issued cookies needs a different approach. Linux enables cookie
+challenges based on handshake queue pressure, with system-wide load hysteresis;
+a fixed packet flood is therefore unsuitable as a deterministic CI assertion.
+Use independent cookie vectors for Rama's consumer and an optional kernel load
+test for stress coverage. Once an admission limiter exists, test burst capacity,
+refill, source isolation and bounded state using a supplied clock, then add a
+small UDP integration test with an explicitly selected overload policy.
