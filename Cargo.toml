@@ -504,6 +504,7 @@ wireguard = [
     "udp",
     "crypto",
     "dep:rama-wireguard",
+    "rama-wireguard/runtime",
 ]
 # QUIC v1 transport over `udp`, with backend-neutral TLS types. Select a built-in
 # TLS/crypto backend explicitly, or supply an external provider.

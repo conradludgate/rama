@@ -1,10 +1,96 @@
 # rama-wireguard
 
-Manually driven UDP adapters for `rama-wireguard-proto`, whose common modules
-and types are re-exported here. `DatagramTransport` handles packet I/O;
-`WireGuardService` executes engine actions over a Rama datagram socket.
+WireGuard endpoints, a socket driver and Rama UDP/TUN integration. The protocol,
+cryptography, peer state and deterministic engine live in
+[`rama-wireguard-proto`](../rama-wireguard-proto) and are re-exported here. The
+built-in provider uses `rama-crypto/rustcrypto`.
 
-Callers supply protocol time, handshake timestamps and ephemeral keys.
-`WireGuardTunnelService` dispatches raw tunnel payloads through a Rama service.
-Run `cargo test -p rama-wireguard --features test-utils --locked` for in-memory
-UDP and cookie challenge/retry coverage.
+The protocol crate performs no socket I/O and takes protocol time, timestamps and
+ephemeral keys as inputs. This crate supplies those inputs and executes I/O.
+`DatagramTransport` lives in `transport`, outside the protocol/device layer.
+
+## Protocol engine and IP routing
+
+`device::WireGuardEngine` is independent of the async runtime and OS interface.
+Call `tick(elapsed)` before processing I/O and at least once per second, using a
+monotonic duration from a consistent origin. It emits `WireGuardMaintenance`:
+
+- `Send(datagram)`: write the datagram to its UDP destination.
+- `HandshakeRequired(peer)`: supply fresh ephemeral randomness and a wall-clock
+  TAI64N timestamp to `start_handshake_auto`, then transmit the initiation.
+
+The engine owns five-second retry rate limiting, a 90-second retry budget,
+keepalives after unanswered incoming traffic, initiator rekeying at 120 seconds,
+per-key rejection at 180 seconds, and transport counter limits. Expiry applies to
+current, previous and unconfirmed receive keys. Optional persistent keepalives are
+configured with `set_persistent_keepalive`. Expired retries release pending keys
+and queued packets. One outbound IP packet per peer is retained during a handshake.
+
+Configure `PeerConfig::allowed_ips` with the peer's inner IP prefixes. The engine
+uses the most specific destination prefix to choose an outgoing peer, and the
+same table to validate incoming sources. Empty allowed IPs accept no IP traffic.
+`send_ip_packet` and `receive_ip_datagram` expose this IP policy; the lower-level
+`send` and `receive_datagram` methods deliberately handle arbitrary transport
+payloads and do not perform IP source validation.
+
+`rama-net::ip` provides reusable `IpPacket` borrowed parsing, basic IPv4/IPv6
+header encoders and `IpPrefixMap` longest-prefix lookup. Parsing removes tunnel
+padding using the IP length and leaves options/extension headers opaque. It does
+not verify IP/transport checksums, reassemble fragments or support jumbograms.
+
+## Async endpoint and peers
+
+Enable `rama-wireguard/runtime` (included by `rama/wireguard`) for the async API.
+`PeerEndpoint::new(private_key, socket, config)` returns an empty endpoint and
+one unspawned `EndpointDriver`. Run it directly or call `driver.spawn(&exec)`
+with Rama's `Executor`. No tasks are spawned for individual peers. Keep the task
+handle to inspect local I/O errors; executor cancellation stops the driver.
+Endpoint construction accepts only an identity and socket, so peers cannot be
+preconfigured through an engine. `new_with_crypto::<C, _>` selects a custom provider.
+
+```rust,ignore
+let (endpoint, driver) = PeerEndpoint::new(private_key, socket, EndpointConfig::default());
+let task = driver.spawn(&exec);
+let peer = endpoint.add_peer(peer_config).await?;
+peer.send_ip_packet(&packet).await?;
+let received = peer.recv().await; // PeerPacket { source, payload }, without a peer ID
+peer.set_persistent_keepalive(Some(Duration::from_secs(25))).await?;
+drop(peer); // Last clone dropping schedules configuration and key removal.
+endpoint.close();
+task.await?; // Inspect the optional driver result as well.
+```
+
+Peer handles survive rekeys and endpoint roaming, and own their registration.
+Clones share one receive queue. Dropping the last clone wakes the driver to remove
+configuration, routes, pending handshakes, all transport key generations, timers
+and queued outgoing IP packets. This removal bypasses the bounded command queue.
+Peer mode exposes neither identifier-based operations nor IDs in received packets
+or peer errors. Duplicate public keys are rejected rather than creating ambiguous
+registrations. Cancelling an incomplete `add_peer` rolls the registration back,
+even if the driver has already queued its reply.
+
+For direct IP packet I/O, use `PacketEndpoint::new(private_key, socket, config)`.
+It is the `Endpoint<PacketMode>` wrapper; `PeerEndpoint` is `Endpoint<PeerMode>`.
+Packet mode exposes `add_peer(config).await -> PeerId`, `remove_peer(id).await`,
+`set_persistent_keepalive(id, interval)`, routed `send_ip_packet` and `recv()`.
+Peer IDs are never reused within an endpoint. Its shared receive queue is bounded
+by `packet_receive_capacity`; already delivered packets can remain queued after
+removal. Peer mode uses `peer_receive_capacity` for each queue and exposes sending
+through its owning handles. Both modes support shutdown.
+
+Receive overflow drops the newest packet, counted by `dropped_packets()` on the
+packet endpoint or peer. Sending applies backpressure through the bounded command
+queue before copying packet data. Send success means driver acceptance, not remote
+delivery; during a handshake only the latest packet per peer is retained.
+
+The sealed `ReceiveMode` trait keeps the two receive interfaces distinct. The
+driver uses one dispatch map: packet mode clones the same sender for each dynamic
+registration, while peer mode supplies an independent queue. There are no
+competing endpoint-wide and per-peer receive paths. TUN and smoltcp require
+packet mode.
+
+The driver uses Tokio's monotonic clock, including paused test time, with a
+one-second maintenance wakeup. Handshake timestamps come from the wall clock and
+are kept increasing during the driver's lifetime. `close()` requests shutdown
+without command queue capacity; dropping all endpoint and peer handles also
+stops the driver. Receivers drain already queued packets before returning `None`.

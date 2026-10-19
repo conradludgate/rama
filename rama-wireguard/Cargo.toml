@@ -1,6 +1,6 @@
 [package]
 name = "rama-wireguard"
-description = "WireGuard UDP adapters for rama"
+description = "WireGuard endpoints and UDP driver for rama"
 version = { workspace = true }
 license = { workspace = true }
 edition = { workspace = true }
@@ -18,16 +18,22 @@ targets = ["x86_64-unknown-linux-gnu"]
 [features]
 default = []
 test-utils = ["rama-udp/test-utils"]
+# Socket driver and typed endpoint handles.
+runtime = ["dep:tokio", "dep:rand"]
 
 [dependencies]
+ahash = { workspace = true }
 rama-core = { workspace = true }
 rama-wireguard-proto = { workspace = true }
 rama-net = { workspace = true }
 rama-udp = { workspace = true }
+rand = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["macros", "time", "sync"], optional = true }
 
 [lints]
 workspace = true
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["rt", "test-util"] }
 tokio-test = { workspace = true }
 

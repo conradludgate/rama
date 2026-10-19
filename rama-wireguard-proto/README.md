@@ -5,7 +5,8 @@ handshakes, transport encryption and replay windows, peer configuration, IP
 routing and protocol timers. Initially based on
 [conradludgate/rustyguard](https://github.com/conradludgate/rustyguard).
 
-Use this crate when supplying your own packet I/O and scheduling. For Rama's manually driven UDP adapters,
+Use this crate when supplying your own packet I/O and scheduling. For Rama's UDP
+socket driver, typed endpoints, peer handle lifetimes,
 use [`rama-wireguard`](../rama-wireguard), which re-exports the common protocol
 modules and types.
 

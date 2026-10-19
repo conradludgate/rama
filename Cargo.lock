@@ -5107,10 +5107,13 @@ dependencies = [
 name = "rama-wireguard"
 version = "0.5.0"
 dependencies = [
+ "ahash",
  "rama-core",
  "rama-net",
  "rama-udp",
  "rama-wireguard-proto",
+ "rand 0.10.3",
+ "tokio",
  "tokio-test",
 ]
 

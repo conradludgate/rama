@@ -1,5 +1,14 @@
-//! WireGuard protocol re-exports and manually driven Rama UDP adapters.
-//! `rama-wireguard-proto` owns protocol state; [`transport`] and [`service`] execute UDP I/O.
+//! WireGuard endpoints and I/O adapters for Rama.
+//!
+//! [`rama_wireguard_proto`] owns wire formats, cryptography, peer configuration, IP
+//! routing and the deterministic engine. Its common types and modules are re-exported here.
+//! [`transport`] and [`service`] provide manually driven Rama UDP adapters. With
+//! `runtime`, `endpoint` provides one socket driver and typed packet/peer endpoints.
+//!
+//! The built-in provider requires `rama-crypto/rustcrypto`. Custom providers can
+//! implement [`WireGuardCrypto`]. The protocol work is initially based on
+//! [`rustyguard`](https://github.com/conradludgate/rustyguard).
+
 #![doc(
     html_favicon_url = "https://raw.githubusercontent.com/plabayo/rama/main/docs/img/rama_logo.svg"
 )]
@@ -12,6 +21,14 @@
 pub use rama_wireguard_proto::{crypto, device, proto};
 pub mod service;
 pub mod transport;
+
+#[cfg(feature = "runtime")]
+pub mod endpoint;
+#[cfg(feature = "runtime")]
+pub use endpoint::{
+    DriverError, Endpoint, EndpointConfig, EndpointDriver, EndpointError, PacketEndpoint,
+    PacketMode, Peer, PeerEndpoint, PeerError, PeerMode, PeerPacket, ReceiveMode,
+};
 
 pub use crypto::{
     BuiltinCrypto, CookieState, CryptoError, EphemeralPrivateKey, Key, PublicKey, StaticPrivateKey,
