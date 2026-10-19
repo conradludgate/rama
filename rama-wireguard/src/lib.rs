@@ -4,6 +4,7 @@
 //! routing and the deterministic engine. Its common types and modules are re-exported here.
 //! [`transport`] and [`service`] provide manually driven Rama UDP adapters. With
 //! `runtime`, `endpoint` provides one socket driver and typed packet/peer endpoints.
+//! The `linux_tun` example connects a packet endpoint to an OS interface.
 //!
 //! The built-in provider requires `rama-crypto/rustcrypto`. Custom providers can
 //! implement [`WireGuardCrypto`]. The protocol work is initially based on

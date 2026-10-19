@@ -94,3 +94,53 @@ one-second maintenance wakeup. Handshake timestamps come from the wall clock and
 are kept increasing during the driver's lifetime. `close()` requests shutdown
 without command queue capacity; dropping all endpoint and peer handles also
 stops the driver. Receivers drain already queued packets before returning `None`.
+
+## Linux TUN
+
+The `linux_tun` example connects configured peers to a Linux layer-3 TUN
+interface through `tun-rs`, a Linux-only development dependency. The TUN packet
+pump lives in the example; the library exposes the packet endpoint API.
+The endpoint's socket driver drives maintenance and obtains fresh keys/timestamps.
+The TUN adapter only copies validated IPv4/IPv6 packets through the endpoint API. Invalid network packets
+are discarded. TAP Ethernet frames are not supported by this IP tunnel.
+
+Create the interface with `DeviceBuilder::layer(Layer::L3)`,
+`packet_information(false)` and `offload(false)`. Addresses and OS routes remain
+application configuration. Creation/configuration needs `CAP_NET_ADMIN` in the
+relevant network namespace, and `/dev/net/tun` must be available. Automatic path
+MTU discovery and adaptive overload-cookie policy remain unimplemented.
+
+### Run on two hosts
+
+Build the example:
+
+```sh
+cargo build -p rama-wireguard --features runtime --example linux_tun
+```
+
+Create a private key file on each host (mode 0600); the command prints its public
+key, which you exchange with the other host:
+
+```sh
+target/debug/examples/linux_tun keygen ./private.key
+```
+
+On host A, using host B's public key and reachable UDP endpoint:
+
+```sh
+sudo target/debug/examples/linux_tun run rama-wg 10.77.0.1/24 0.0.0.0:51820 \
+  ./private.key PEER_PUBLIC_KEY HOST_B_IP:51820 10.77.0.2/32
+```
+
+On host B, using host A's public key (`-` waits for an incoming initiation):
+
+```sh
+sudo target/debug/examples/linux_tun run rama-wg 10.77.0.2/24 0.0.0.0:51820 \
+  ./private.key PEER_PUBLIC_KEY - 10.77.0.1/32
+```
+
+The connected `10.77.0.0/24` route goes through TUN. Test with
+`ping 10.77.0.2` on host A and `ping 10.77.0.1` on host B. The UDP endpoint route
+must stay outside the tunnel. The example uses MTU 1420, one peer and no preshared key. The last argument is a
+comma-separated list of allowed IPv4/IPv6 prefixes.
+The non-persistent interface is removed when the process closes it.

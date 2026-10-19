@@ -30,10 +30,18 @@ rama-udp = { workspace = true }
 rand = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["macros", "time", "sync"], optional = true }
 
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+tun-rs = { workspace = true }
+
 [lints]
 workspace = true
 
 [dev-dependencies]
+zeroize = { workspace = true }
+base64 = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["rt", "test-util"] }
 tokio-test = { workspace = true }
 
+[[example]]
+name = "linux_tun"
+required-features = ["runtime"]
