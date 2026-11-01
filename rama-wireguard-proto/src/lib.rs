@@ -12,3 +12,6 @@ pub use crypto::{
 
 pub mod proto;
 pub use proto::Tai64n;
+
+pub mod device;
+pub use device::{Device, DeviceError, PeerConfig, PeerId};
