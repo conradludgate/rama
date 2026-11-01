@@ -53,3 +53,6 @@ mod tests {
 
 mod packet;
 pub use packet::{IpPacket, IpPacketError, Ipv4PacketHeader, Ipv6PacketHeader};
+
+mod prefix_map;
+pub use prefix_map::IpPrefixMap;
