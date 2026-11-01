@@ -157,3 +157,107 @@ the initiator's retry timer drives the next exchange, including when a response
 was challenged. Manual engine/service APIs retain explicit `HandshakePolicy`
 control and do not automatically apply the runtime driver's admission policy.
 
+## Userspace TCP example
+
+[`examples/wireguard-smoltcp`](../examples/wireguard-smoltcp) builds a virtual
+IPv4/TCP network on top of the endpoint packet API using smoltcp, without TUN or
+OS route changes. Run `cargo run -p rama-wireguard-smoltcp --locked` to verify a
+TCP echo between two virtual hosts over encrypted loopback UDP.
+
+## Linux TUN
+
+The `linux_tun` example connects configured peers to a Linux layer-3 TUN
+interface through `tun-rs`, a Linux-only development dependency. The TUN packet
+pump lives in the example; the library exposes the packet endpoint API.
+The endpoint's socket driver drives maintenance and obtains fresh keys/timestamps.
+The TUN adapter only copies validated IPv4/IPv6 packets through the endpoint API. Invalid network packets
+are discarded. TAP Ethernet frames are not supported by this IP tunnel.
+
+Create the interface with `DeviceBuilder::layer(Layer::L3)`,
+`packet_information(false)` and `offload(false)`. Addresses and OS routes remain
+application configuration. Creation/configuration needs `CAP_NET_ADMIN` in the
+relevant network namespace, and `/dev/net/tun` must be available. Automatic path
+MTU discovery remains unimplemented. Admission uses configured handshake budgets;
+it does not adapt them from CPU or queue-pressure measurements.
+
+### Run on two hosts
+
+Build the example:
+
+```sh
+cargo build -p rama-wireguard --features runtime --example linux_tun
+```
+
+Create a private key file on each host (mode 0600); the command prints its public
+key, which you exchange with the other host:
+
+```sh
+target/debug/examples/linux_tun keygen ./private.key
+```
+
+On host A, using host B's public key and reachable UDP endpoint:
+
+```sh
+sudo target/debug/examples/linux_tun run rama-wg 10.77.0.1/24 0.0.0.0:51820 \
+  ./private.key PEER_PUBLIC_KEY HOST_B_IP:51820 10.77.0.2/32
+```
+
+On host B, using host A's public key (`-` waits for an incoming initiation):
+
+```sh
+sudo target/debug/examples/linux_tun run rama-wg 10.77.0.2/24 0.0.0.0:51820 \
+  ./private.key PEER_PUBLIC_KEY - 10.77.0.1/32
+```
+
+The connected `10.77.0.0/24` route goes through TUN. Test with
+`ping 10.77.0.2` on host A and `ping 10.77.0.1` on host B. The UDP endpoint route
+must stay outside the tunnel. The example uses MTU 1420, one peer and no preshared key. The last argument is a
+comma-separated list of allowed IPv4/IPv6 prefixes.
+The non-persistent interface is removed when the process closes it.
+
+### Isolated smoke tests
+
+These use disposable user/network namespaces with a veth pair and require
+`ip`, `nsenter`, `ping`, user-namespace support and `/dev/net/tun`. They do not
+change the host's interfaces or routes:
+
+```sh
+bash rama-wireguard/tests/linux_tun_smoke.sh target/debug/examples/linux_tun
+```
+
+Test against Linux kernel WireGuard instead of a second Rama endpoint with
+`wireguard-tools` installed (the kernel must support WireGuard):
+
+```sh
+bash rama-wireguard/tests/linux_tun_smoke.sh target/debug/examples/linux_tun --kernel
+```
+
+`WG=/path/to/wg` selects a CLI outside `PATH`. Both modes check bidirectional
+IPv4/IPv6 pings, full-MTU packets, and recovery after malformed UDP datagrams.
+CI runs both modes on Linux with a 90-second deadline. On systems that restrict
+unprivileged user namespaces, run the script with `sudo`; it still creates a
+private network namespace before configuring interfaces. Failed runs print the
+endpoint logs before cleaning up.
+
+### Cookie and overload test coverage
+
+The in-memory driver test forces cookie challenges in both directions and checks
+that queued IP packets arrive after the retry exchanges. Admission tests use
+explicit time for threshold windows, bursts/refill, source isolation, table
+saturation and secret rotation. Invalid MAC1s need no randomness or source state.
+Protocol scenarios cover repeated loss, reordered/duplicate data, crossed
+handshakes and response-cookie caching without immediate retransmission.
+
+A useful next kernel fixture would drive `WireGuardEngine` directly over UDP,
+force Rama's cookie policy, and assert that a kernel-initiated handshake retries
+with valid MAC2 before allowing data. Rama would not need a TUN device for this
+fixture: it could inject and inspect inner IP packets directly. Keep the TUN
+smoke test as separate coverage of OS integration.
+
+Testing kernel-issued cookies needs a different approach. Linux enables cookie
+challenges based on handshake queue pressure, with system-wide load hysteresis;
+a fixed packet flood is therefore unsuitable as a deterministic CI assertion.
+Use independent cookie vectors for Rama's consumer and an optional kernel load
+test for stress coverage. The deterministic limiter and in-memory driver tests
+do not establish kernel overload behavior or a universal safe request rate.
+
