@@ -1,6 +1,6 @@
 [package]
 name = "rama-wireguard-proto"
-description = "WireGuard packet formats and cryptographic primitives for rama"
+description = "WireGuard protocol, cryptographic handshake and deterministic engine for rama"
 version = { workspace = true }
 license = { workspace = true }
 edition = { workspace = true }

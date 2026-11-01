@@ -2,7 +2,8 @@
 //!
 //! This is deliberately independent of platform TUN/TAP APIs. It gives callers a typed starting
 //! point for building a WireGuard device and leaves the actual packet interface to the surrounding
-//! Rama application. Scheduling is supplied by the caller.
+//! Rama application. [`WireGuardEngine`] owns monotonic protocol timing and emits
+//! maintenance actions for adapters to execute.
 
 use ahash::{HashMap, HashMapExt as _};
 use core::marker::PhantomData;
@@ -11,6 +12,12 @@ use std::vec::Vec;
 use rama_net::{
     address::{SocketAddress, ip::ipnet::IpNet},
     ip::IpPrefixMap,
+};
+
+mod engine;
+pub use engine::{
+    EngineError, HandshakePolicy, SendIntoError, TunnelPacket, TunnelPacketRef, WireGuardAction,
+    WireGuardDatagram, WireGuardDatagramRef, WireGuardEngine, WireGuardMaintenance,
 };
 
 use zerocopy::IntoBytes;
@@ -134,6 +141,10 @@ impl<C: WireGuardCrypto> Device<C> {
     #[must_use]
     pub fn peer_count(&self) -> usize {
         self.peers.len()
+    }
+
+    pub(crate) fn peer_ids(&self) -> impl Iterator<Item = PeerId> + '_ {
+        self.peers.keys().copied()
     }
 
     /// Returns the local static public key.
