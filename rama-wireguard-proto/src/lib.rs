@@ -4,5 +4,8 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
+pub mod crypto;
+pub use crypto::{BuiltinCrypto, CryptoError, Key, PublicKey, StaticPrivateKey, WireGuardCrypto};
+
 pub mod proto;
 pub use proto::Tai64n;
