@@ -50,3 +50,9 @@ mod tests {
         assert_eq!(EcnCodepoint::from_bits(0b1111_1111), EcnCodepoint::Ce);
     }
 }
+
+mod packet;
+pub use packet::{IpPacket, IpPacketError, Ipv4PacketHeader, Ipv6PacketHeader};
+
+mod prefix_map;
+pub use prefix_map::IpPrefixMap;
