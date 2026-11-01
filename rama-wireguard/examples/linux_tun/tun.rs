@@ -4,8 +4,8 @@
 //! Configure addresses and routes with [`tun_rs::DeviceBuilder`] or the operating system.
 
 use rama_core::telemetry::tracing;
-use rama_wireguard::{EndpointError, PacketEndpoint, TunnelPacket};
-use std::io;
+use rama_wireguard::{EndpointError, PacketEndpoint, SendReceipt, TunnelPacket};
+use std::{collections::VecDeque, io};
 use tun_rs::AsyncDevice;
 
 /// Connects a Linux TUN interface to an independently driven WireGuard endpoint.
@@ -14,6 +14,7 @@ pub(super) struct WireGuardTunService {
     endpoint: PacketEndpoint,
     tun: AsyncDevice,
     mtu: u16,
+    send_window: usize,
 }
 impl WireGuardTunService {
     /// Uses a configured layer-3 interface and an endpoint whose driver is running.
@@ -22,26 +23,54 @@ impl WireGuardTunService {
     /// Captures the configured MTU; recreate the service after changing it.
     pub(super) fn new(endpoint: PacketEndpoint, tun: AsyncDevice) -> io::Result<Self> {
         let mtu = tun.mtu()?;
+        // Zero retains the original serial path as a matched benchmark control.
+        let send_window = std::env::var("RAMA_WIREGUARD_SEND_WINDOW")
+            .unwrap_or_else(|_| "16".into())
+            .parse::<usize>()
+            .ok()
+            .filter(|window| *window <= 64)
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "RAMA_WIREGUARD_SEND_WINDOW must be in 0..=64",
+                )
+            })?;
         if mtu > 65_472 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "TUN MTU exceeds the WireGuard UDP payload limit",
             ));
         }
-        Ok(Self { endpoint, tun, mtu })
+        Ok(Self {
+            endpoint,
+            tun,
+            mtu,
+            send_window,
+        })
     }
 
     /// Copies IP packets until cancelled, the endpoint closes, or TUN I/O fails.
     pub(super) async fn run(self) -> Result<(), TunServiceError> {
         let mut buffer = vec![0; 65_536];
+        // Small, fixed FIFO of receipts: no per-future allocation or packet
+        // reordering. Stop TUN reads at the bound; continue incoming delivery.
+        let mut pending: VecDeque<SendReceipt> = VecDeque::with_capacity(self.send_window);
         loop {
             enum Event {
                 Ip(io::Result<usize>),
                 Packet(Option<TunnelPacket>),
+                Accepted(Result<(), EndpointError>),
             }
             let event = tokio::select! {
-                result = self.tun.recv(&mut buffer) => Event::Ip(result),
+                result = self.tun.recv(&mut buffer),
+                    if self.send_window == 0 || pending.len() < self.send_window => Event::Ip(result),
                 packet = self.endpoint.recv() => Event::Packet(packet),
+                result = async {
+                    match pending.front_mut() {
+                        Some(receipt) => receipt.await,
+                        None => std::future::pending().await,
+                    }
+                }, if !pending.is_empty() => Event::Accepted(result),
             };
             match event {
                 Event::Ip(result) => {
@@ -59,13 +88,20 @@ impl WireGuardTunService {
                     if packet.as_bytes().len() > usize::from(self.mtu) {
                         continue;
                     }
-                    match self.endpoint.send_ip_packet(packet.as_bytes()).await {
-                        Ok(()) => {}
-                        Err(EndpointError::Engine(error)) => {
-                            tracing::debug!(?error, "discarding unroutable IP packet")
+                    if self.send_window == 0 {
+                        Self::accepted(self.endpoint.send_ip_packet(packet.as_bytes()).await)?;
+                    } else {
+                        match self.endpoint.enqueue_ip_packet(packet.as_bytes()).await {
+                            Ok(receipt) => pending.push_back(receipt),
+                            Err(error) => {
+                                Self::accepted(Err(error))?;
+                            }
                         }
-                        Err(error) => return Err(error.into()),
                     }
+                }
+                Event::Accepted(result) => {
+                    drop(pending.pop_front());
+                    Self::accepted(result)?;
                 }
                 Event::Packet(Some(packet)) => {
                     if self.tun.send(&packet.payload).await? != packet.payload.len() {
@@ -78,6 +114,17 @@ impl WireGuardTunService {
                 }
                 Event::Packet(None) => return Err(EndpointError::Closed.into()),
             }
+        }
+    }
+
+    fn accepted(result: Result<(), EndpointError>) -> Result<(), TunServiceError> {
+        match result {
+            Ok(()) => Ok(()),
+            Err(EndpointError::Engine(error)) => {
+                tracing::debug!(?error, "discarding unroutable IP packet");
+                Ok(())
+            }
+            Err(error) => Err(error.into()),
         }
     }
 }
