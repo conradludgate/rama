@@ -1,5 +1,5 @@
 //! Socket I/O, protocol scheduling and dynamic peer commands.
-use super::{DriverError, EndpointError, PacketQueue, PeerChanges, PeerRegistration};
+use super::{DriverError, EndpointError, PacketQueue, PeerChanges, PeerRegistration, SendReceipt};
 use crate::admission::{Decision, HandshakeAdmission};
 use crate::{
     DeviceError, EphemeralPrivateKey, PeerConfig, PeerId, ServiceError, Tai64n, WireGuardCrypto,
@@ -336,6 +336,14 @@ pub(super) async fn send(
     peer: Option<PeerId>,
     packet: &[u8],
 ) -> Result<(), EndpointError> {
+    enqueue(commands, peer, packet).await?.await
+}
+
+pub(super) async fn enqueue(
+    commands: &mpsc::Sender<Command>,
+    peer: Option<PeerId>,
+    packet: &[u8],
+) -> Result<SendReceipt, EndpointError> {
     let packet = IpPacket::parse(packet)
         .map_err(|error| EndpointError::Engine(crate::EngineError::Ip(error)))?;
     if packet.as_bytes().len() > 65_472 {
@@ -352,7 +360,7 @@ pub(super) async fn send(
         packet: packet.as_bytes().to_vec(),
         reply,
     });
-    result.await.map_err(|_closed| EndpointError::Closed)?
+    Ok(SendReceipt(result))
 }
 fn ephemeral() -> io::Result<EphemeralPrivateKey> {
     let mut bytes = [0; 32];

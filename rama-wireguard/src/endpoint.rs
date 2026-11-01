@@ -7,19 +7,22 @@ use ahash::{HashMap, HashMapExt as _};
 use rama_net::address::SocketAddress;
 use rama_udp::DatagramSocket;
 use std::{
+    future::Future,
     io,
     num::NonZeroUsize,
+    pin::Pin,
     sync::{
         Arc,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
+    task::{Context, Poll},
     time::Duration,
 };
 use tokio::sync::{Mutex, Notify, mpsc, oneshot, watch};
 
 mod driver;
 pub use driver::EndpointDriver;
-use driver::{Command, keepalive, register, send};
+use driver::{Command, enqueue, keepalive, register, send};
 
 #[cfg(all(test, feature = "test-utils"))]
 mod tests;
@@ -176,6 +179,25 @@ pub struct Endpoint<M: ReceiveMode> {
 /// }
 /// ```
 pub type PacketEndpoint = Endpoint<PacketMode>;
+
+/// Driver acceptance of an already enqueued packet, not remote delivery.
+///
+/// Await this to observe routing/protocol errors. Dropping the receipt discards
+/// the result without withdrawing the packet. Keep the endpoint alive while
+/// waiting; driver shutdown resolves outstanding receipts with `Closed`.
+#[derive(Debug)]
+#[must_use = "await the receipt to observe driver acceptance and errors"]
+pub struct SendReceipt(oneshot::Receiver<Result<(), EndpointError>>);
+
+impl Future for SendReceipt {
+    type Output = Result<(), EndpointError>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Pin::new(&mut self.0)
+            .poll(cx)
+            .map(|result| result.unwrap_or(Err(EndpointError::Closed)))
+    }
+}
 /// Handle-owned peers, without identifier-based APIs or a direct packet receiver.
 /// ```compile_fail
 /// fn cannot_receive(endpoint: rama_wireguard::PeerEndpoint) { endpoint.recv(); }
@@ -255,6 +277,31 @@ impl Endpoint<PacketMode> {
     /// Routes by destination IP and waits for driver acceptance, not remote delivery.
     pub async fn send_ip_packet(&self, packet: &[u8]) -> Result<(), EndpointError> {
         send(&self.commands, None, packet).await
+    }
+
+    /// Enqueues an IP packet with command-queue backpressure, returning a receipt
+    /// for later driver acceptance. The input is copied only after queue space
+    /// is reserved. Cancellation before enqueue submits nothing; afterward the
+    /// packet may be processed even if its receipt is dropped.
+    ///
+    /// Await each enqueue in order to preserve submission order when pipelining.
+    /// Await receipts to observe routing errors; enqueue success alone does not
+    /// mean the driver accepted the packet. During handshakes only the latest
+    /// queued packet per peer is retained, as with `send_ip_packet`.
+    ///
+    /// ```no_run
+    /// # use rama_wireguard::{EndpointError, PacketEndpoint};
+    /// # async fn enqueue_two(endpoint: &PacketEndpoint, a: &[u8], b: &[u8]) -> Result<(), EndpointError> {
+    /// // The driver must be running. Bound the number of outstanding receipts.
+    /// let first = endpoint.enqueue_ip_packet(a).await?;
+    /// let second = endpoint.enqueue_ip_packet(b).await?;
+    /// first.await?;
+    /// second.await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn enqueue_ip_packet(&self, packet: &[u8]) -> Result<SendReceipt, EndpointError> {
+        enqueue(&self.commands, None, packet).await
     }
     /// Receives packets with their peer IDs. Cancellation does not consume a packet.
     pub async fn recv(&self) -> Option<TunnelPacket> {
