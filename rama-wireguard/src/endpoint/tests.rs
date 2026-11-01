@@ -37,6 +37,119 @@ fn sockets() -> (MemoryDatagramSocket, MemoryDatagramSocket) {
 }
 
 #[tokio::test(start_paused = true)]
+async fn pipelined_sends_preserve_packet_order_and_report_errors_independently() {
+    let (asock, bsock) = sockets();
+    let (a, ad) = PacketEndpoint::new(
+        StaticPrivateKey::from_bytes([91; 32]),
+        asock,
+        EndpointConfig::default(),
+    );
+    let (b, bd) = PacketEndpoint::new(
+        StaticPrivateKey::from_bytes([92; 32]),
+        bsock,
+        EndpointConfig::default(),
+    );
+    let at = ad.spawn(&Executor::new());
+    let bt = bd.spawn(&Executor::new());
+    a.add_peer(config(
+        b.public_key(),
+        Some(SocketAddress::local_ipv4(49001)),
+        2,
+    ))
+    .await
+    .unwrap();
+    b.add_peer(config(
+        a.public_key(),
+        Some(SocketAddress::local_ipv4(49000)),
+        1,
+    ))
+    .await
+    .unwrap();
+    // Establish the session before testing FIFO data delivery.
+    a.send_ip_packet(&packet(1, 2, 0)).await.unwrap();
+    assert_eq!(
+        tokio::time::timeout(Duration::from_secs(20), b.recv())
+            .await
+            .unwrap()
+            .unwrap()
+            .payload,
+        packet(1, 2, 0)
+    );
+    let first = a.enqueue_ip_packet(&packet(1, 2, 1)).await.unwrap();
+    let bad = a.enqueue_ip_packet(&packet(1, 3, 99)).await.unwrap();
+    let last = a.enqueue_ip_packet(&packet(1, 2, 2)).await.unwrap();
+    drop(first); // Discarding a receipt must not withdraw its queued packet.
+    last.await.unwrap(); // Results may be awaited independently of enqueue order.
+    assert!(matches!(
+        bad.await,
+        Err(EndpointError::Engine(crate::EngineError::NoIpRoute(_)))
+    ));
+    for marker in [1, 2] {
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(2), b.recv())
+                .await
+                .unwrap()
+                .unwrap()
+                .payload,
+            packet(1, 2, marker)
+        );
+    }
+    a.close();
+    b.close();
+    at.await.unwrap().unwrap().unwrap();
+    bt.await.unwrap().unwrap().unwrap();
+}
+
+#[tokio::test(start_paused = true)]
+async fn cancelled_enqueue_behind_full_queue_submits_nothing() {
+    use rama_core::futures::poll;
+    let (socket, _remote) = sockets();
+    let (endpoint, mut driver) = PacketEndpoint::new(
+        StaticPrivateKey::from_bytes([91; 32]),
+        socket,
+        EndpointConfig {
+            command_capacity: NonZeroUsize::MIN,
+            ..EndpointConfig::default()
+        },
+    );
+    let mut first = endpoint.enqueue_ip_packet(&packet(1, 2, 1)).await.unwrap();
+    assert!(poll!(&mut first).is_pending());
+    let payload = packet(1, 3, 2);
+    let mut waiting = Box::pin(endpoint.enqueue_ip_packet(&payload));
+    assert!(poll!(&mut waiting).is_pending());
+    drop(waiting);
+    let command = driver.commands.recv().await.unwrap();
+    driver.command(command).await.unwrap();
+    assert!(matches!(
+        first.await,
+        Err(EndpointError::Engine(crate::EngineError::NoIpRoute(_)))
+    ));
+    assert!(driver.commands.try_recv().is_err());
+}
+
+#[tokio::test(start_paused = true)]
+async fn receipt_reports_shutdown_and_invalid_input_never_queues() {
+    let (socket, _remote) = sockets();
+    let (endpoint, mut driver) = PacketEndpoint::new(
+        StaticPrivateKey::from_bytes([91; 32]),
+        socket,
+        EndpointConfig::default(),
+    );
+    assert!(matches!(
+        endpoint.enqueue_ip_packet(&[]).await,
+        Err(EndpointError::Engine(crate::EngineError::Ip(_)))
+    ));
+    assert!(driver.commands.try_recv().is_err());
+    let receipt = endpoint.enqueue_ip_packet(&packet(1, 2, 1)).await.unwrap();
+    drop(driver);
+    assert!(matches!(receipt.await, Err(EndpointError::Closed)));
+    assert!(matches!(
+        endpoint.enqueue_ip_packet(&packet(1, 2, 2)).await,
+        Err(EndpointError::Closed)
+    ));
+}
+
+#[tokio::test(start_paused = true)]
 async fn coalesced_transport_preserves_boundaries_and_discards_truncated_entries() {
     use crate::WireGuardAction;
     use rama_core::futures::poll;
