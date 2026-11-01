@@ -27,6 +27,45 @@ concurrency:
 # Keep group names independent of workflow/ref; see scripts/ci/README.md.
 
 jobs:
+  test-wireguard-linux:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs:
+      - precheck-rust
+      - precheck-docs
+      - precheck-fmt
+      - meta-lints
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+      - uses: ./.github/actions/rust-cache
+        with:
+          env-vars: RUST_TOOLCHAIN
+          key: ubuntu-latest-${{ env.RUST_TOOLCHAIN }}
+          shared-key: linux-wireguard-v1
+      - name: Install Linux interoperability tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iproute2 iputils-ping util-linux wireguard-tools
+          sudo modprobe tun
+          sudo modprobe wireguard
+      - name: Protocol and in-memory UDP tests
+        run: cargo test -p rama-wireguard-proto -p rama-wireguard --all-features --locked
+      - name: Standalone protocol crate
+        run: cargo check -p rama-wireguard-proto --locked
+      - name: Build Linux TUN fixture
+        run: cargo build -p rama-wireguard --features runtime --example linux_tun --locked
+      - name: Rama to Rama interoperability
+        run: sudo timeout 90s bash rama-wireguard/tests/linux_tun_smoke.sh target/debug/examples/linux_tun
+      - name: Linux kernel interoperability
+        run: sudo timeout 90s bash rama-wireguard/tests/linux_tun_smoke.sh target/debug/examples/linux_tun --kernel
+
   precheck-rust:
     runs-on: ubuntu-latest
     env:
@@ -1290,6 +1329,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !cancelled() }}
     needs:
+      - test-wireguard-linux
       - precheck-rust
       - precheck-docs
       - check-rust
