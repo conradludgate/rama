@@ -46,10 +46,16 @@ pub use ::rama_tcp as tcp;
 #[cfg_attr(docsrs, doc(cfg(all(feature = "std", feature = "udp"))))]
 #[doc(inline)]
 pub use ::rama_udp as udp;
+
 #[cfg(all(target_family = "unix", feature = "unix"))]
 #[cfg_attr(docsrs, doc(cfg(all(target_family = "unix", feature = "unix"))))]
 #[doc(inline)]
 pub use ::rama_unix as unix;
+/// WireGuard protocol, engine and runtime adapters.
+#[cfg(feature = "wireguard")]
+#[cfg_attr(docsrs, doc(cfg(feature = "wireguard")))]
+#[doc(inline)]
+pub use ::rama_wireguard as wireguard;
 
 /// QUIC: the deterministic wire-protocol vocabulary and the async engine built on it.
 ///
