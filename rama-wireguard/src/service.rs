@@ -280,6 +280,25 @@ impl<C: WireGuardCrypto, S: DatagramSocket> WireGuardService<C, S> {
             .await
     }
 
+    #[cfg(feature = "runtime")]
+    pub(crate) async fn process_received_ip_datagram(
+        &mut self,
+        metadata: DatagramMetadata,
+        buffer: &mut [u8],
+        ephemeral: Option<EphemeralPrivateKey>,
+        deliver: impl FnMut(TunnelPacket),
+    ) -> Result<(), ServiceError> {
+        self.process_datagram_with(
+            metadata,
+            buffer,
+            ephemeral,
+            HandshakePolicy::Accept,
+            true,
+            deliver,
+        )
+        .await
+    }
+
     async fn process_datagram(
         &mut self,
         metadata: DatagramMetadata,

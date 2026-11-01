@@ -44,3 +44,21 @@ fn tunnel_handlers_preserve_application_errors() {
     let cause = error.source().unwrap().downcast_ref::<io::Error>().unwrap();
     assert_eq!(cause.kind(), io::ErrorKind::BrokenPipe);
 }
+
+#[cfg(feature = "runtime")]
+#[test]
+fn driver_and_endpoint_errors_preserve_protocol_causes() {
+    use rama_wireguard::{DriverError, EndpointError};
+    let error = DriverError::WireGuard(ServiceError::Engine(EngineError::TimeWentBackwards));
+    assert!(error.source().unwrap().is::<ServiceError>());
+    assert!(
+        error
+            .source()
+            .unwrap()
+            .source()
+            .unwrap()
+            .is::<EngineError>()
+    );
+    let error = EndpointError::Configuration(DeviceError::DuplicatePeer);
+    assert!(error.source().unwrap().is::<DeviceError>());
+}
