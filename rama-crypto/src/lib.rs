@@ -6,6 +6,11 @@
 //! - Public and private keys
 //! - Signing
 //!
+//! Enable `rustcrypto` for pure Rust primitives exported by `dep::rustcrypto`.
+//! These exports include SHA-2, HMAC, HKDF, BLAKE2, ChaCha20Poly1305,
+//! XChaCha20Poly1305, X25519 and zeroization utilities. This feature can be used
+//! alongside the other crypto backends; it does not change their selection.
+//!
 //! # Rama
 //!
 //! Crate used by the end-user `rama` crate and `rama` crate authors alike.
@@ -55,6 +60,22 @@ pub mod dep {
     //! Dependencies for rama crypto modules.
     //!
     //! Exported for your convenience
+
+    /// Pure Rust cryptographic primitives used by Rama.
+    ///
+    /// Enable `rustcrypto` to use these crates directly alongside Rama's helpers.
+    /// The hash, MAC and KDF crates share the same `digest` traits. BLAKE2 requires
+    /// [`hmac::SimpleHmac`] and [`hkdf::SimpleHkdf`] rather than their eager variants.
+    #[cfg(feature = "rustcrypto")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "rustcrypto")))]
+    pub mod rustcrypto {
+        #[doc(inline)]
+        pub use blake2::digest;
+        #[doc(inline)]
+        pub use chacha20poly1305::aead;
+        #[doc(inline)]
+        pub use {blake2, chacha20poly1305, hkdf, hmac, sha2, x25519_dalek, zeroize};
+    }
 
     #[cfg(feature = "aws-lc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "aws-lc")))]
