@@ -1,0 +1,25 @@
+[package]
+name = "rama-wireguard-proto"
+description = "WireGuard packet formats and cryptographic primitives for rama"
+version = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+keywords = ["io", "wireguard", "vpn", "network", "rama"]
+categories = ["network-programming", "cryptography"]
+authors = { workspace = true }
+rust-version = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[features]
+default = []
+
+[dependencies]
+zerocopy = { version = "0.8", features = ["derive"] }
+
+[lints]
+workspace = true

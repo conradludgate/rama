@@ -5152,6 +5152,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rama-wireguard-proto"
+version = "0.5.0"
+dependencies = [
+ "zerocopy",
+]
+
+[[package]]
 name = "rama-ws"
 version = "0.5.0"
 dependencies = [
