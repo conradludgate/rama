@@ -33,6 +33,7 @@ members = [
     "examples/grpc",
     "examples/grpc/tests/extern_path/my_application",
     "examples/grpc/tests/extern_path/uuid",
+    "examples/wireguard-smoltcp",
     "fuzz",
     "rama-cli",
     "rama-core",

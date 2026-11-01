@@ -59,6 +59,10 @@ jobs:
         run: cargo test -p rama-wireguard-proto -p rama-wireguard --all-features --locked
       - name: Standalone protocol crate
         run: cargo check -p rama-wireguard-proto --locked
+      - name: Userspace virtual TCP tests
+        run: cargo test -p rama-wireguard-smoltcp --locked
+      - name: Userspace virtual TCP demo
+        run: cargo run -p rama-wireguard-smoltcp --locked
       - name: Build Linux TUN fixture
         run: cargo build -p rama-wireguard --features runtime --example linux_tun --locked
       - name: Rama to Rama interoperability

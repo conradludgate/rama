@@ -108,6 +108,20 @@ packet endpoint or peer. Sending applies backpressure through the bounded comman
 queue before copying packet data. Send success means driver acceptance, not remote
 delivery; during a handshake only the latest packet per peer is retained.
 
+For bounded pipelining in direct packet mode, `enqueue_ip_packet` waits only for
+command queue space and returns a `SendReceipt` to await driver acceptance/errors
+later. Await enqueues in order to preserve submission order, and cap outstanding
+receipts. Dropping a receipt discards the result without withdrawing the packet;
+keep the endpoint alive while waiting. `send_ip_packet` retains its existing
+acceptance-waiting behavior, including in peer-handle mode.
+
+The Linux TUN example keeps at most 16 sends outstanding and observes every
+receipt, pausing outgoing TUN reads at the bound while servicing incoming packets.
+`RAMA_WIREGUARD_SEND_WINDOW=0` selects the original serial path for comparison;
+values 1 through 64 set the bound. Receipt storage is allocated once, without
+additional per-future or per-packet buffer allocations. The endpoint's existing
+command-copy and acknowledgement allocations remain.
+
 The sealed `ReceiveMode` trait keeps the two receive interfaces distinct. The
 driver uses one dispatch map: packet mode clones the same sender for each dynamic
 registration, while peer mode supplies an independent queue. There are no
@@ -142,6 +156,13 @@ after 120 seconds of use. Cookie replies are cached without immediate resends;
 the initiator's retry timer drives the next exchange, including when a response
 was challenged. Manual engine/service APIs retain explicit `HandshakePolicy`
 control and do not automatically apply the runtime driver's admission policy.
+
+## Userspace TCP example
+
+[`examples/wireguard-smoltcp`](../examples/wireguard-smoltcp) builds a virtual
+IPv4/TCP network on top of the endpoint packet API using smoltcp, without TUN or
+OS route changes. Run `cargo run -p rama-wireguard-smoltcp --locked` to verify a
+TCP echo between two virtual hosts over encrypted loopback UDP.
 
 ## Linux TUN
 
