@@ -32,8 +32,17 @@ tokio = { workspace = true, features = ["macros", "time", "sync"], optional = tr
 zerocopy = "0.8"
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt", "test-util"] }
+base64 = { workspace = true, default-features = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "test-util"] }
 tokio-test = { workspace = true }
+zeroize = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+tun-rs = { workspace = true }
+
+[[example]]
+name = "linux_tun"
+required-features = ["runtime"]
 
 [lints]
 workspace = true
