@@ -33,6 +33,7 @@ members = [
     "examples/grpc",
     "examples/grpc/tests/extern_path/my_application",
     "examples/grpc/tests/extern_path/uuid",
+    "examples/wireguard-smoltcp",
     "fuzz",
     "rama-cli",
     "rama-core",
@@ -286,6 +287,9 @@ tracing-test = "0.2"
 tracing-tree = "0.4"
 trybuild = "1.0"
 tui-logger = { version = "0.18", features = ["tracing-support"] }
+# Newer tun-rs patches require AsyncFd::register from Tokio 1.53.3.
+# Keep this example compatible with this fork's locked Tokio 1.53.1.
+tun-rs = { version = "=2.8.11", default-features = false, features = ["async_tokio"] }
 turmoil = "0.7"
 unicode-normalization = "0.1"
 uuid = "1.26"

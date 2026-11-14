@@ -1,0 +1,26 @@
+[package]
+name = "rama-wireguard-smoltcp"
+description = "A virtual TCP network using smoltcp over Rama WireGuard"
+publish = false
+version = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+
+[dependencies]
+ahash = { workspace = true }
+parking_lot = { workspace = true }
+rama-core = { workspace = true }
+rama-net = { workspace = true }
+rama-udp = { workspace = true }
+rama-wireguard = { workspace = true, features = ["runtime"] }
+rand = { workspace = true }
+smoltcp = { version = "0.14", default-features = false, features = ["std", "medium-ip", "proto-ipv4", "socket-tcp", "socket-tcp-reno"] }
+tokio = { workspace = true, features = ["macros", "rt", "time", "io-util", "sync"] }
+
+[dev-dependencies]
+rama-udp = { workspace = true, features = ["test-utils"] }
+tokio = { workspace = true, features = ["test-util", "net"] }
+
+[lints]
+workspace = true
