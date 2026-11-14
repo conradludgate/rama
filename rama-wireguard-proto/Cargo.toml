@@ -1,6 +1,6 @@
 [package]
 name = "rama-wireguard-proto"
-description = "WireGuard packet formats and cryptographic primitives for rama"
+description = "WireGuard protocol, cryptographic handshake and deterministic engine for rama"
 version = { workspace = true }
 license = { workspace = true }
 edition = { workspace = true }
@@ -19,7 +19,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 default = []
 
 [dependencies]
+ahash = { workspace = true }
 rama-crypto = { workspace = true, features = ["rustcrypto"] }
+rama-net = { workspace = true }
 zerocopy = { version = "0.8", features = ["derive"] }
 zeroize = { workspace = true, features = ["derive"] }
 
