@@ -271,6 +271,7 @@ mod tests {
         assert!(default_tls_alpn(&Protocol::from_static("custom")).is_none());
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn wire_format_round_trips_boundaries() {
         for bytes in [vec![b'a'], vec![b'x'; 255]] {
@@ -289,6 +290,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn wire_format_rejects_empty_and_oversized_names() {
         for bytes in [Vec::new(), vec![b'x'; 256]] {
@@ -302,6 +304,7 @@ mod tests {
         assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn decodes_consecutive_protocol_names() {
         const INPUT: &[u8] = b"\x02h2\x08http/1.1";

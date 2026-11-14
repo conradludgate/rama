@@ -45,7 +45,7 @@ pub mod rate;
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod stream;
-#[cfg(any(test, feature = "test-utils"))]
+#[cfg(all(feature = "std", any(test, feature = "test-utils")))]
 #[cfg_attr(docsrs, doc(cfg(feature = "test-utils")))]
 pub mod test_utils;
 pub mod uri;
